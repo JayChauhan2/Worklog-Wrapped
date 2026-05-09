@@ -1,0 +1,87 @@
+.canvas {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff0db;
+  position: relative;
+}
+
+.navbar {
+  position: absolute;
+  top: 30px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  z-index: 10;
+}
+
+.nav-link {
+  font-family: "Just Another Hand", cursive;
+  font-size: 20px;
+  text-decoration: none;
+  color: #1f1f1f;
+  letter-spacing: 1px;
+}
+
+.bucket-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bucket {
+  /* No hover effects */
+}
+
+.arrow-container {
+  position: absolute;
+  top: -100px;
+  right: -80px;
+  pointer-events: none;
+}
+
+.arrow-line {
+  stroke-dasharray: 200;
+  stroke-dashoffset: 200;
+  animation: drawArrow 3.5s ease-in-out infinite;
+}
+
+.arrow-head {
+  opacity: 0;
+  animation: headFade 3.5s ease-in-out infinite;
+}
+
+@keyframes drawArrow {
+  0% {
+    stroke-dashoffset: 200;
+    opacity: 0;
+  }
+  10% {
+    stroke-dashoffset: 200;
+    opacity: 1;
+  }
+  60% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  75% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+  100% {
+    stroke-dashoffset: 200;
+    opacity: 0;
+  }
+}
+
+@keyframes headFade {
+  0%, 55% { opacity: 0; }
+  60% { opacity: 1; }
+  75% { opacity: 0; }
+  100% { opacity: 0; }
+}
