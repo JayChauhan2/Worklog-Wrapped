@@ -4,15 +4,15 @@ import './App.css';
 function Home() {
   return (
     <div className="bucket-wrapper">
-      <svg 
-        className="bucket" 
-        width="120" 
-        height="120" 
-        viewBox="0 0 24 24" 
-        fill="none" 
-        stroke="#1f1f1f" 
-        strokeWidth="0.6" 
-        strokeLinecap="round" 
+      <svg
+        className="bucket"
+        width="120"
+        height="120"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#1f1f1f"
+        strokeWidth="0.6"
+        strokeLinecap="round"
         strokeLinejoin="round"
       >
         {/* An empty bucket shape (U shape with an elliptical top rim) */}
@@ -20,24 +20,24 @@ function Home() {
         <ellipse cx="12" cy="4.5" rx="7.5" ry="2" />
       </svg>
 
-      <svg 
-        className="arrow-container" 
-        width="160" 
-        height="160" 
+      <svg
+        className="arrow-container"
+        width="160"
+        height="160"
         viewBox="0 0 160 160"
       >
-        <path 
-          className="arrow-line" 
-          d="M 140 10 Q 100 10 20 90" 
-          fill="none" 
-          stroke="#1f1f1f" 
-          strokeWidth="3" 
-          strokeLinecap="round" 
+        <path
+          className="arrow-line"
+          d="M 140 10 Q 100 10 20 90"
+          fill="none"
+          stroke="#1f1f1f"
+          strokeWidth="3"
+          strokeLinecap="round"
         />
-        <polygon 
-          className="arrow-head" 
-          points="20,90 35.6,84.4 25.6,74.4" 
-          fill="#1f1f1f" 
+        <polygon
+          className="arrow-head"
+          points="20,90 35.6,84.4 25.6,74.4"
+          fill="#1f1f1f"
         />
       </svg>
     </div>
@@ -45,8 +45,15 @@ function Home() {
 }
 
 function Gallery() {
-  // Completely blank page as requested
-  return null;
+  return (
+    <div className="gallery-container">
+      <div className="gallery-track">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((_, index) => (
+          <div key={index} className="gallery-card"></div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function App() {
@@ -57,7 +64,7 @@ function App() {
           <Link to="/" className="nav-link">Home</Link>
           <Link to="/gallery" className="nav-link">Gallery</Link>
         </nav>
-        
+
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/gallery" element={<Gallery />} />
