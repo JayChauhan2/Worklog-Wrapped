@@ -1,6 +1,6 @@
 .canvas {
   width: 100vw;
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -185,19 +185,20 @@
 
 .data-view {
   padding-top: 100px; /* Space for the navbar */
+  padding-bottom: 60px; /* Space at the bottom */
   justify-content: flex-start;
-  height: 100vh;
+  min-height: 100vh;
   width: 100%;
   box-sizing: border-box;
 }
 
 .table-header-bar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   width: 90%;
   max-width: 1200px;
-  margin-bottom: 40px;
+  margin-bottom: 20px;
 }
 
 .clear-button {
@@ -208,13 +209,38 @@
   padding: 8px 16px;
   border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, color 0.2s;
   color: #1f1f1f;
 }
 
 .clear-button:hover {
   background-color: #1f1f1f;
   color: #fff0db;
+}
+
+.add-button {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background-color: transparent;
+  border: 2px solid #1f1f1f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.add-button:hover {
+  background-color: #1f1f1f;
+}
+
+.add-button svg {
+  transition: stroke 0.2s;
+}
+
+.add-button:hover svg {
+  stroke: #fff0db;
 }
 
 .dashboard-grid {
@@ -413,4 +439,89 @@
   background-color: #D5451B;
   border: 1px solid #D5451B;
   box-sizing: border-box;
+}
+
+.wave-container {
+  display: inline-flex;
+}
+
+.wave-char {
+  display: inline-block;
+  animation: cheekyWave 5s infinite;
+}
+
+@keyframes cheekyWave {
+  0% { transform: translateY(0); }
+  3% { transform: translateY(-8px); }
+  6% { transform: translateY(0); }
+  100% { transform: translateY(0); }
+}
+
+.ranking-bar-container {
+  position: absolute;
+  bottom: 40px;
+  left: 20px;
+  width: calc(100% - 40px);
+  height: 48px;
+  background-color: transparent;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ranking-bar-fill {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 12px;
+  box-sizing: border-box;
+  transition: width 3.5s cubic-bezier(0.25, 1, 0.5, 1), background-color 3.5s cubic-bezier(0.25, 1, 0.5, 1);
+  border-radius: 8px;
+}
+
+.ranking-text {
+  font-family: "Patrick Hand", cursive;
+  font-size: 28px;
+  color: #1f1f1f;
+  font-weight: bold;
+}
+
+.roast-text {
+  position: absolute;
+  top: 92px;
+  left: 20px;
+  right: 20px;
+  font-family: "Patrick Hand", cursive;
+  font-size: 22px;
+  color: #888888;
+  margin: 0;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.personality-desc {
+  position: absolute;
+  top: 70px;
+  left: 20px;
+  right: 20px;
+  font-family: "Patrick Hand", cursive;
+  font-size: 22px;
+  color: #1f1f1f;
+  margin: 0;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.craziest-post-wrapper {
+  position: absolute;
+  top: 48px;
+  bottom: 0px;
+  left: 15px;
+  right: 15px;
+}
+
+@keyframes typeWriterReveal {
+  to {
+    opacity: 1;
+  }
 }

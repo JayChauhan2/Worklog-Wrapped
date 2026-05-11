@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import './App.css';
@@ -10,25 +10,25 @@ const excelDateToJSDate = (serial) => {
 
 const calculateLongestStreak = (data) => {
   if (!data || data.length === 0) return { maxStreak: 0, endDate: null, streakDates: new Set(), allDates: new Set() };
-  
+
   // Extract integers from "Date Worked"
   const dates = data
     .map(row => row['Date Worked'])
     .filter(val => typeof val === 'number') // Ensure it's a number
     .map(val => Math.floor(val));
-    
+
   if (dates.length === 0) return { maxStreak: 0, endDate: null, streakDates: new Set(), allDates: new Set() };
-  
+
   // Remove duplicates and sort ascending
   const uniqueSortedDates = [...new Set(dates)].sort((a, b) => a - b);
   const allDates = new Set(uniqueSortedDates);
-  
+
   let maxStreak = 1;
   let currentStreak = 1;
   let currentStreakStart = uniqueSortedDates[0];
   let maxStreakStart = uniqueSortedDates[0];
   let maxStreakEnd = uniqueSortedDates[0];
-  
+
   for (let i = 1; i < uniqueSortedDates.length; i++) {
     if (uniqueSortedDates[i] === uniqueSortedDates[i - 1] + 1) {
       currentStreak++;
@@ -36,7 +36,7 @@ const calculateLongestStreak = (data) => {
       currentStreak = 1;
       currentStreakStart = uniqueSortedDates[i];
     }
-    
+
     // Use >= so if there are ties, the latest streak is highlighted
     if (currentStreak >= maxStreak) {
       maxStreak = currentStreak;
@@ -44,19 +44,73 @@ const calculateLongestStreak = (data) => {
       maxStreakEnd = uniqueSortedDates[i];
     }
   }
-  
+
   const streakDates = new Set();
   for (let d = maxStreakStart; d <= maxStreakEnd; d++) {
     streakDates.add(d);
   }
-  
-  return { 
-    maxStreak, 
-    endDate: maxStreakEnd, 
-    streakDates, 
-    allDates 
+
+  return {
+    maxStreak,
+    endDate: maxStreakEnd,
+    streakDates,
+    allDates
   };
 };
+
+function AutoScaleText({ text, color = '#1f1f1f' }) {
+  const containerRef = useRef(null);
+  const textRef = useRef(null);
+  const [fontSize, setFontSize] = useState(28);
+  const [isScaled, setIsScaled] = useState(false);
+
+  useEffect(() => {
+    setFontSize(28);
+    setIsScaled(false);
+  }, [text]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const textEl = textRef.current;
+    if (container && textEl && !isScaled) {
+      if (
+        (textEl.scrollHeight > container.clientHeight ||
+          textEl.scrollWidth > container.clientWidth) &&
+        fontSize > 12
+      ) {
+        setFontSize((prev) => prev - 1);
+      } else {
+        setIsScaled(true);
+      }
+    }
+  }, [fontSize, isScaled, text]);
+
+  return (
+    <div ref={containerRef} style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <p ref={textRef} style={{ 
+        fontSize: `${fontSize}px`, 
+        margin: 0, 
+        textAlign: 'center', 
+        fontFamily: '"Patrick Hand", cursive', 
+        color: color, 
+        lineHeight: 1.2,
+        opacity: isScaled ? 1 : 0
+      }}>
+        {text.split('').map((char, i) => (
+          <span 
+            key={i} 
+            style={{ 
+              opacity: 0, 
+              animation: isScaled ? `typeWriterReveal 0.1s forwards ${(i / text.length) * 1.5}s` : 'none'
+            }}
+          >
+            {char}
+          </span>
+        ))}
+      </p>
+    </div>
+  );
+}
 
 function Home() {
   const [excelData, setExcelData] = useState(null);
@@ -64,7 +118,20 @@ function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [enableLoadingScreen, setEnableLoadingScreen] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const [brutality, setBrutality] = useState(50);
+  const [brutality, setBrutality] = useState(15);
+  const targetRanking = 67; // Fake target percent
+  const [rankingPercent, setRankingPercent] = useState(0);
+
+  useEffect(() => {
+    if (excelData) {
+      const t = setTimeout(() => {
+        setRankingPercent(targetRanking);
+      }, 100);
+      return () => clearTimeout(t);
+    } else {
+      setRankingPercent(0);
+    }
+  }, [excelData]);
 
   useEffect(() => {
     if (isLoading) {
@@ -122,7 +189,7 @@ function Home() {
       // Convert that sheet to a JSON array of objects
       const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
       setExcelData(json);
-      
+
       // Trigger the fake loading phase if enabled
       if (enableLoadingScreen) {
         setIsLoading(true);
@@ -163,7 +230,7 @@ function Home() {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       processFile(e.dataTransfer.files[0]);
       e.dataTransfer.clearData();
@@ -188,11 +255,11 @@ function Home() {
             strokeLinecap="round"
           >
             <circle cx="12" cy="12" r={radius} stroke="#e0d5c1" />
-            <circle 
-              cx="12" 
-              cy="12" 
-              r={radius} 
-              stroke="#1f1f1f" 
+            <circle
+              cx="12"
+              cy="12"
+              r={radius}
+              stroke="#1f1f1f"
               strokeDasharray={circumference}
               strokeDashoffset={offset}
               style={{ transition: 'stroke-dashoffset 0.05s linear' }}
@@ -205,11 +272,11 @@ function Home() {
           <p>loading your personality...</p>
           <div className="slider-container">
             <label htmlFor="brutality">adjust brutality meter</label>
-            <input 
+            <input
               id="brutality"
-              type="range" 
-              min="0" 
-              max="100" 
+              type="range"
+              min="0"
+              max="100"
               value={brutality}
               onChange={(e) => setBrutality(e.target.value)}
               className="brutality-slider"
@@ -240,7 +307,7 @@ function Home() {
 
     if (endDate !== null) {
       let currentMonth = -1;
-      
+
       for (let i = 139; i >= 0; i--) {
         const day = endDate - i;
         let status = 'empty';
@@ -264,28 +331,93 @@ function Home() {
       }
     }
 
+    let streakEmoji = '😴';
+    if (maxStreak > 14) {
+      streakEmoji = '🔥';
+    } else if (maxStreak >= 7) {
+      streakEmoji = '🧑‍💻';
+    }
+
     return (
       <div className="home-container data-view">
         <div className="table-header-bar">
           <button onClick={handleClear} className="clear-button">Start Over</button>
+          <button className="add-button" title="Add New">
+            <svg viewBox="0 0 24 24" width="36" height="36" stroke="#1f1f1f" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
         </div>
 
         <div className="dashboard-grid">
           {/* Quadrant 2: Top Left */}
-          <div className="streak-card empty-card"></div>
-          
+          <div className="streak-card empty-card">
+            <span className="streak-text">
+              <span className="wave-container">
+                {'Craziest'.split('').map((char, index) => (
+                  <span
+                    key={index}
+                    className="wave-char"
+                    style={{ animationDelay: `${index * 0.1}s` }}
+                  >
+                    {char}
+                  </span>
+                ))}
+              </span>{' '}
+              Post
+            </span>
+            <div className="craziest-post-wrapper">
+              <AutoScaleText color="#D5451B" text='"I accidentally pushed my AWS keys to a public repo. Literally the worst day of my life."' />
+            </div>
+          </div>
+
           {/* Quadrant 1: Top Right */}
-          <div className="streak-card empty-card"></div>
-          
+          <div className="streak-card empty-card" style={{ overflow: 'hidden' }}>
+            <span className="streak-text">
+              <span style={{ color: '#D5451B' }}>South-West</span>: Personality Type
+            </span>
+            <p className="personality-desc">
+              You thrive on chaotic bursts of late-night energy and completely ignore any structured calendar you make.
+            </p>
+            <svg 
+              className="personality-waves"
+              viewBox="0 0 400 80" 
+              style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '80px' }}
+            >
+              <path d="M -20 30 Q 30 22, 80 30 T 180 30 T 280 30 T 380 30 T 480 30" fill="none" stroke="#1f1f1f" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M -40 50 Q 10 42, 60 50 T 160 50 T 260 50 T 360 50 T 460 50" fill="none" stroke="#1f1f1f" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M -60 70 Q -10 62, 40 70 T 140 70 T 240 70 T 340 70 T 440 70" fill="none" stroke="#1f1f1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+
           {/* Quadrant 3: Bottom Left */}
-          <div className="streak-card empty-card"></div>
+          <div className="streak-card empty-card">
+            <span className="streak-text">Work Ethic Ranking</span>
+            <p className="roast-text">
+              "Literally typed with your elbows."
+            </p>
+            <div className="ranking-bar-container">
+              <div 
+                className="ranking-bar-fill"
+                style={{ 
+                  width: `${rankingPercent}%`,
+                  minWidth: '75px', // Ensure text is never cut off
+                  backgroundColor: `color-mix(in srgb, #D5451B ${targetRanking}%, #ffdaab)` 
+                }}
+              >
+                <span className="ranking-text">{rankingPercent}%</span>
+              </div>
+            </div>
+          </div>
 
           {/* Quadrant 4: Bottom Right */}
           <div className="streak-card">
             <span className="streak-text">
-              Longest Streak: <span style={{ color: '#D5451B' }}>{maxStreak} Days</span>
+              <span style={{ color: '#D5451B' }}>{maxStreak} Days</span>: Longest Streak
+              <span style={{ fontFamily: 'sans-serif', marginLeft: '8px' }}>{streakEmoji}</span>
             </span>
-            
+
             {endDate !== null && (
               <div className="graph-container">
                 <div className="contribution-graph">
@@ -295,9 +427,9 @@ function Home() {
                 </div>
                 <div className="month-labels">
                   {monthLabels.map(m => (
-                    <span 
-                      key={m.colIndex} 
-                      className="month-label" 
+                    <span
+                      key={m.colIndex}
+                      className="month-label"
                       style={{ left: `${m.colIndex * 18}px` }}
                     >
                       {m.label}
@@ -316,85 +448,85 @@ function Home() {
   // Otherwise, render the default dropzone view
   return (
     <>
-      <div 
+      <div
         className="home-container"
         onDragOver={handleDragOver}
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      {isDragging && (
-        <div className="drag-overlay">
-          <div className="drag-overlay-content">
-            <p>Drop your worklog here!</p>
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isDragging && (
+          <div className="drag-overlay">
+            <div className="drag-overlay-content">
+              <p>Drop your worklog here!</p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <label className="upload-button-area">
-        <input
-          type="file"
-          style={{ display: 'none' }}
-          accept=".xlsx, .xls, .csv"
-          onChange={handleFileUpload}
-        />
-        <div className="bucket-wrapper">
-          <svg
-            className="bucket"
-            width="120"
-            height="120"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#1f1f1f"
-            strokeWidth="0.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            {/* An empty bucket shape (U shape with an elliptical top rim) */}
-            <path d="M4.5 4.5l1.5 15A2 2 0 0 0 8 21.5h8a2 2 0 0 0 2-2l1.5-15" />
-            <ellipse cx="12" cy="4.5" rx="7.5" ry="2" />
-          </svg>
-
-          <svg
-            className="arrow-container"
-            width="160"
-            height="160"
-            viewBox="0 0 160 160"
-          >
-            <path
-              className="arrow-line"
-              d="M 140 10 Q 100 10 20 90"
+        <label className="upload-button-area">
+          <input
+            type="file"
+            style={{ display: 'none' }}
+            accept=".xlsx, .xls, .csv"
+            onChange={handleFileUpload}
+          />
+          <div className="bucket-wrapper">
+            <svg
+              className="bucket"
+              width="120"
+              height="120"
+              viewBox="0 0 24 24"
               fill="none"
               stroke="#1f1f1f"
-              strokeWidth="3"
+              strokeWidth="0.6"
               strokeLinecap="round"
-            />
-            <polygon
-              className="arrow-head"
-              points="20,90 35.6,84.4 25.6,74.4"
-              fill="#1f1f1f"
-            />
-          </svg>
-        </div>
+              strokeLinejoin="round"
+            >
+              {/* An empty bucket shape (U shape with an elliptical top rim) */}
+              <path d="M4.5 4.5l1.5 15A2 2 0 0 0 8 21.5h8a2 2 0 0 0 2-2l1.5-15" />
+              <ellipse cx="12" cy="4.5" rx="7.5" ry="2" />
+            </svg>
 
-        <div className="upload-text">
-          <p>drag your worklog excel anywhere on this page</p>
-          <p className="file-formats">.xlsx</p>
-        </div>
-      </label>
-    </div>
+            <svg
+              className="arrow-container"
+              width="160"
+              height="160"
+              viewBox="0 0 160 160"
+            >
+              <path
+                className="arrow-line"
+                d="M 140 10 Q 100 10 20 90"
+                fill="none"
+                stroke="#1f1f1f"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+              <polygon
+                className="arrow-head"
+                points="20,90 35.6,84.4 25.6,74.4"
+                fill="#1f1f1f"
+              />
+            </svg>
+          </div>
 
-    {/* Dev Toggle */}
-    <div style={{ position: 'fixed', bottom: '10px', left: '10px', fontSize: '12px', fontFamily: 'monospace', zIndex: 100 }}>
-      <label style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#1f1f1f' }}>
-        <input 
-          type="checkbox" 
-          checked={enableLoadingScreen} 
-          onChange={(e) => setEnableLoadingScreen(e.target.checked)}
-        />
-        Loading screen: {enableLoadingScreen ? 'ON' : 'OFF'}
-      </label>
-    </div>
+          <div className="upload-text">
+            <p>drag your worklog excel anywhere on this page</p>
+            <p className="file-formats">.xlsx</p>
+          </div>
+        </label>
+      </div>
+
+      {/* Dev Toggle */}
+      <div style={{ position: 'fixed', bottom: '10px', left: '10px', fontSize: '12px', fontFamily: 'monospace', zIndex: 100 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#1f1f1f' }}>
+          <input
+            type="checkbox"
+            checked={enableLoadingScreen}
+            onChange={(e) => setEnableLoadingScreen(e.target.checked)}
+          />
+          Loading screen: {enableLoadingScreen ? 'ON' : 'OFF'}
+        </label>
+      </div>
     </>
   );
 }
