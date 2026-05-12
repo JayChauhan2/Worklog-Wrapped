@@ -116,13 +116,14 @@ function Home() {
   const [excelData, setExcelData] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [enableLoadingScreen, setEnableLoadingScreen] = useState(false);
+  const [enableLoadingScreen, setEnableLoadingScreen] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [brutality, setBrutality] = useState(15);
   const [aiData, setAiData] = useState(null);
   const targetRanking = aiData?.workEthicRanking || 0;
   const [rankingPercent, setRankingPercent] = useState(0);
   const [showCardModal, setShowCardModal] = useState(false);
+  const [cardName, setCardName] = useState('');
 
   useEffect(() => {
     if (aiData) {
@@ -173,6 +174,30 @@ function Home() {
   };
 
   const handleCardMouseUp = () => { isDrawingOnCard.current = false; };
+
+  const handleCardSubmit = () => {
+    const canvas = canvasRef.current;
+    const signatureDataUrl = canvas ? canvas.toDataURL() : '';
+    const { maxStreak, endDate, streakDates, allDates } = calculateLongestStreak(excelData);
+    const existing = JSON.parse(localStorage.getItem('galleryEntries') || '[]');
+    const newEntry = {
+      id: Date.now(),
+      name: cardName.trim() || 'Anonymous',
+      issuedDate: today,
+      cardNumber: String(existing.length + 1).padStart(4, '0'),
+      signatureDataUrl,
+      aiData,
+      streak: {
+        maxStreak,
+        endDate,
+        streakDates: [...streakDates],
+        allDates: [...allDates],
+      },
+    };
+    localStorage.setItem('galleryEntries', JSON.stringify([...existing, newEntry]));
+    setShowCardModal(false);
+    setCardName('');
+  };
 
   useEffect(() => {
     if (isLoading && enableLoadingScreen) {
@@ -567,7 +592,7 @@ function Home() {
                 <div className="card-content">
                   <p className="card-title-text">Capstone</p>
                   <p className="card-field-label">MY NAME IS</p>
-                  <input type="text" className="card-name-input" placeholder="your name" />
+                  <input type="text" className="card-name-input" placeholder="your name" value={cardName} onChange={e => setCardName(e.target.value)} />
                   <p className="card-field-label">ISSUED ON</p>
                   <p className="card-date-value">{today}</p>
                   <div className="card-footer-row">
@@ -579,7 +604,7 @@ function Home() {
                   </div>
                 </div>
               </div>
-              <button className="card-submit-btn">Submit</button>
+              <button className="card-submit-btn" onClick={handleCardSubmit}>Submit</button>
             </div>
           </div>
         )}
@@ -589,14 +614,13 @@ function Home() {
 
   // Otherwise, render the default dropzone view
   return (
-    <>
-      <div
-        className="home-container"
-        onDragOver={handleDragOver}
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
+    <div
+      className="home-container"
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
         {isDragging && (
           <div className="drag-overlay">
             <div className="drag-overlay-content">
@@ -657,32 +681,171 @@ function Home() {
           </div>
         </label>
       </div>
+  );
+}
 
-      {/* Dev Toggle */}
-      <div style={{ position: 'fixed', bottom: '10px', left: '10px', fontSize: '12px', fontFamily: 'monospace', zIndex: 100 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#1f1f1f' }}>
-          <input
-            type="checkbox"
-            checked={enableLoadingScreen}
-            onChange={(e) => setEnableLoadingScreen(e.target.checked)}
-          />
-          Loading screen: {enableLoadingScreen ? 'ON' : 'OFF'}
-        </label>
+function GalleryDetailModal({ entry, onClose }) {
+  const [rankingPercent, setRankingPercent] = useState(0);
+  const targetRanking = entry.aiData?.workEthicRanking || 0;
+
+  useEffect(() => {
+    const t = setTimeout(() => setRankingPercent(targetRanking), 200);
+    return () => clearTimeout(t);
+  }, [targetRanking]);
+
+  const { maxStreak, endDate, streakDates: streakArr, allDates: allArr } = entry.streak || {};
+  const streakDates = new Set(streakArr || []);
+  const allDates = new Set(allArr || []);
+
+  const gridDays = [];
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthLabels = [];
+  if (endDate != null) {
+    let currentMonth = -1;
+    for (let i = 139; i >= 0; i--) {
+      const day = endDate - i;
+      let status = 'empty';
+      if (streakDates.has(day)) status = 'streak';
+      else if (allDates.has(day)) status = 'logged';
+      gridDays.push({ day, status });
+      if (i % 7 === 6) {
+        const jsDate = excelDateToJSDate(day);
+        const month = jsDate.getUTCMonth();
+        if (month !== currentMonth) {
+          monthLabels.push({ colIndex: (139 - i) / 7, label: monthNames[month] });
+          currentMonth = month;
+        }
+      }
+    }
+  }
+
+  let streakEmoji = '😴';
+  if (maxStreak > 14) streakEmoji = '🔥';
+  else if (maxStreak >= 7) streakEmoji = '🧑‍💻';
+
+  return (
+    <div className="card-modal-backdrop" onClick={onClose}>
+      <div className="gallery-detail-modal" onClick={e => e.stopPropagation()}>
+        <div className="gallery-detail-header">
+          <span className="gallery-detail-name">{entry.name}</span>
+          <span className="gallery-detail-meta">NO. {entry.cardNumber} · {entry.issuedDate}</span>
+        </div>
+
+        <div className="dashboard-grid">
+          {/* Craziest Post */}
+          <div className="streak-card empty-card">
+            <span className="streak-text">
+              <span className="wave-container">
+                {'Craziest'.split('').map((char, i) => (
+                  <span key={i} className="wave-char" style={{ animationDelay: `${i * 0.1}s` }}>{char}</span>
+                ))}
+              </span>{' '}Post
+            </span>
+            <div className="craziest-post-wrapper">
+              <AutoScaleText color="#D5451B" text={entry.aiData?.craziestPost || '—'} />
+            </div>
+          </div>
+
+          {/* Personality Type */}
+          <div className="streak-card empty-card" style={{ overflow: 'hidden' }}>
+            <span className="streak-text">
+              <span style={{ color: '#D5451B' }}>{entry.aiData?.personalityType || '???'}</span>: Personality Type
+            </span>
+            <p className="personality-desc">{entry.aiData?.personalityDescription || ''}</p>
+            <svg className="personality-waves" viewBox="0 0 400 80" style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '80px' }}>
+              <path d="M -20 30 Q 30 22, 80 30 T 180 30 T 280 30 T 380 30 T 480 30" fill="none" stroke="#1f1f1f" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M -40 50 Q 10 42, 60 50 T 160 50 T 260 50 T 360 50 T 460 50" fill="none" stroke="#1f1f1f" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M -60 70 Q -10 62, 40 70 T 140 70 T 240 70 T 340 70 T 440 70" fill="none" stroke="#1f1f1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+
+          {/* Work Ethic Ranking */}
+          <div className="streak-card empty-card">
+            <span className="streak-text">Work Ethic Ranking</span>
+            <p className="roast-text">"{entry.aiData?.roast ? `${entry.aiData.roast} 😂` : '—'}"</p>
+            <div className="ranking-bar-container">
+              <div
+                className="ranking-bar-fill"
+                style={{
+                  width: `${rankingPercent}%`,
+                  minWidth: '75px',
+                  backgroundColor: `color-mix(in srgb, #D5451B ${targetRanking}%, #ffdaab)`
+                }}
+              >
+                <span className="ranking-text">{Math.round(rankingPercent)}%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Longest Streak */}
+          <div className="streak-card">
+            <span className="streak-text">
+              <span style={{ color: '#D5451B' }}>{maxStreak || 0} Days</span>: Longest Streak
+              <span style={{ fontFamily: 'sans-serif', marginLeft: '8px' }}>{streakEmoji}</span>
+            </span>
+            {endDate != null && (
+              <div className="graph-container">
+                <div className="contribution-graph">
+                  {gridDays.map(d => (
+                    <div key={d.day} className={`day-square day-${d.status}`} />
+                  ))}
+                </div>
+                <div className="month-labels">
+                  {monthLabels.map(m => (
+                    <span key={m.colIndex} className="month-label" style={{ left: `${m.colIndex * 18}px` }}>{m.label}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <button className="card-submit-btn" onClick={onClose}>Close</button>
       </div>
-    </>
+    </div>
   );
 }
 
 function Gallery() {
+  const [entries, setEntries] = useState([]);
+  const [selected, setSelected] = useState(null);
+
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem('galleryEntries') || '[]');
+    setEntries(stored);
+  }, []);
+
+  if (entries.length === 0) {
+    return (
+      <div className="gallery-container" style={{ justifyContent: 'center' }}>
+        <p style={{ fontFamily: '"Patrick Hand", cursive', fontSize: '22px', color: '#888' }}>
+          No cards yet — submit one from the dashboard!
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="gallery-container">
       <div className="gallery-track">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((_, index) => (
-          <div key={index} className="gallery-card">
-            <span className="read-more-text">Click to read more</span>
+        {entries.map(entry => (
+          <div key={entry.id} className="gallery-card capstone-gallery-card" onClick={() => setSelected(entry)}>
+            {entry.signatureDataUrl && (
+              <img src={entry.signatureDataUrl} className="gallery-sig-img" alt="sig" />
+            )}
+            <span className="read-more-text">Click to see more</span>
+            <div className="gallery-card-inner">
+              <p className="gallery-card-title">Capstone</p>
+              <p className="gallery-card-name">{entry.name}</p>
+              <p className="gallery-card-number">NO. {entry.cardNumber}</p>
+            </div>
           </div>
         ))}
       </div>
+
+      {selected && (
+        <GalleryDetailModal entry={selected} onClose={() => setSelected(null)} />
+      )}
     </div>
   );
 }

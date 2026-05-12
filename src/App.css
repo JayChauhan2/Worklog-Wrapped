@@ -43,7 +43,7 @@
   justify-content: center;
   gap: 15px;
   cursor: pointer;
-  border: 1px dashed #1f1f1f;
+  border: none;
   padding: 100px 160px;
   border-radius: 20px;
   min-width: 600px;
@@ -142,10 +142,10 @@
 
 .gallery-track {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 200px));
-  gap: 20px;
+  grid-template-columns: repeat(3, minmax(0, 360px));
+  gap: 28px;
   width: 100%;
-  max-width: 1100px;
+  max-width: 1140px;
   justify-content: center;
 }
 
@@ -179,7 +179,7 @@
 }
 
 .gallery-card:hover {
-  transform: scale(1.4);
+  transform: scale(1.06);
   z-index: 10;
 }
 
@@ -678,4 +678,125 @@
 .card-submit-btn:hover {
   background-color: #1f1f1f;
   color: #fff0db;
+}
+
+/* ── Gallery Capstone Cards ──────────────────────────────────────────────────── */
+.capstone-gallery-card {
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+}
+
+.gallery-sig-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.15;
+  pointer-events: none;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.capstone-gallery-card:hover .gallery-sig-img {
+  opacity: 0;
+}
+
+.gallery-card-inner {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-sizing: border-box;
+  justify-content: center;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.capstone-gallery-card:hover .gallery-card-inner {
+  opacity: 0;
+}
+
+.gallery-card-title {
+  font-family: "Patrick Hand", cursive;
+  font-size: 28px;
+  font-weight: bold;
+  color: #1f1f1f;
+  margin: 0;
+  line-height: 1;
+}
+
+.gallery-card-name {
+  font-family: "Patrick Hand", cursive;
+  font-size: 22px;
+  color: #D5451B;
+  margin: 0;
+}
+
+.gallery-card-number {
+  font-family: "Patrick Hand", cursive;
+  font-size: 14px;
+  letter-spacing: 1.5px;
+  color: #aaa;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+/* Signature image overlay on the full-size card view */
+.card-sig-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.9;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Name display in read-only card view */
+.card-name-display {
+  font-family: "Patrick Hand", cursive;
+  font-size: 20px;
+  color: #1f1f1f;
+  margin: 0 0 10px 0;
+  border-bottom: 1.5px solid rgba(31,31,31,0.2);
+  padding-bottom: 4px;
+  width: 60%;
+}
+
+/* ── Gallery Detail Modal ────────────────────────────────────────────────────── */
+.gallery-detail-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  animation: slideUpCard 0.45s cubic-bezier(0.25, 1, 0.5, 1) both;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 10px 0 4px;
+}
+
+.gallery-detail-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.gallery-detail-name {
+  font-family: "Patrick Hand", cursive;
+  font-size: 36px;
+  font-weight: bold;
+  color: #1f1f1f;
+}
+
+.gallery-detail-meta {
+  font-family: "Patrick Hand", cursive;
+  font-size: 13px;
+  color: #aaa;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
 }

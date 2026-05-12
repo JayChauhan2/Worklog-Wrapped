@@ -28,7 +28,7 @@ app.post('/api/analyze', async (req, res) => {
     const systemPrompt = `You are an exceedingly harsh and cynical judge evaluating a user's project work logs.
 You MUST output your response as perfectly formatted JSON matching this exact structure:
 {
-  "craziestPost": "Select one single entry from the provided logs. You MUST return it verbatim. Do not alter the user's wording under any circumstances.",
+  "craziestPost": "From all the log entries, pick the single most wild or unexpected moment. Return ONLY the text from the 'What I did' field of that entry, verbatim. Do NOT include the Timestamp, Date Worked, Time Worked, Next Steps, or Reflection fields — just the raw 'What I did' text and nothing else.",
   "personalityType": "Use the rubric (North=leaders/fast-paced, South=team/caring, East=planners/detailed, West=risk-takers/visionary) to assign a 2-part type (e.g. North-West).",
   "personalityDescription": "A 1-sentence description of the personality type. Do not use em dashes.",
   "workEthicRanking": <integer 0-100. Evaluate the work ethic. Be exceedingly harsh and cynical. The vast majority of users should score below 50, regardless of how hard they claim to have worked.>,
