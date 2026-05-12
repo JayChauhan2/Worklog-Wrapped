@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
+import { supabase } from './supabaseClient';
 import './App.css';
 
 const excelDateToJSDate = (serial) => {
@@ -87,20 +88,20 @@ function AutoScaleText({ text, color = '#1f1f1f' }) {
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p ref={textRef} style={{ 
-        fontSize: `${fontSize}px`, 
-        margin: 0, 
-        textAlign: 'center', 
-        fontFamily: '"Patrick Hand", cursive', 
-        color: color, 
+      <p ref={textRef} style={{
+        fontSize: `${fontSize}px`,
+        margin: 0,
+        textAlign: 'center',
+        fontFamily: '"Patrick Hand", cursive',
+        color: color,
         lineHeight: 1.2,
         opacity: isScaled ? 1 : 0
       }}>
         {text.split('').map((char, i) => (
-          <span 
-            key={i} 
-            style={{ 
-              opacity: 0, 
+          <span
+            key={i}
+            style={{
+              opacity: 0,
               animation: isScaled ? `typeWriterReveal 0.1s forwards ${(i / text.length) * 1.5}s` : 'none'
             }}
           >
@@ -175,26 +176,33 @@ function Home() {
 
   const handleCardMouseUp = () => { isDrawingOnCard.current = false; };
 
-  const handleCardSubmit = () => {
+  const handleCardSubmit = async () => {
     const canvas = canvasRef.current;
     const signatureDataUrl = canvas ? canvas.toDataURL() : '';
     const { maxStreak, endDate, streakDates, allDates } = calculateLongestStreak(excelData);
-    const existing = JSON.parse(localStorage.getItem('galleryEntries') || '[]');
-    const newEntry = {
-      id: Date.now(),
+
+    // Get current count for card number
+    const { count } = await supabase
+      .from('gallery_entries')
+      .select('*', { count: 'exact', head: true });
+
+    const cardNumber = String((count || 0) + 1).padStart(4, '0');
+
+    const { error } = await supabase.from('gallery_entries').insert({
       name: cardName.trim() || 'Anonymous',
-      issuedDate: today,
-      cardNumber: String(existing.length + 1).padStart(4, '0'),
-      signatureDataUrl,
-      aiData,
+      issued_date: today,
+      card_number: cardNumber,
+      signature_data_url: signatureDataUrl,
+      ai_data: aiData,
       streak: {
         maxStreak,
         endDate,
         streakDates: [...streakDates],
         allDates: [...allDates],
       },
-    };
-    localStorage.setItem('galleryEntries', JSON.stringify([...existing, newEntry]));
+    });
+
+    if (error) console.error('Supabase insert error:', error);
     setShowCardModal(false);
     setCardName('');
   };
@@ -230,10 +238,10 @@ function Home() {
 
         // Figure out where the progress roughly "should" be based on time
         const timeRatio = Math.min((elapsed + nextDelay) / TOTAL_TIME, 1);
-        
+
         // Non-linear curve: starts a bit faster, slows down
         let idealProgress = Math.pow(timeRatio, 0.8) * 100;
-        
+
         // Random jitter so it's not a smooth line
         let nextTarget = idealProgress + (Math.random() * 15 - 5);
 
@@ -271,7 +279,7 @@ function Home() {
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-      
+
       setExcelData(json);
       setAiData(null);
       setIsLoading(true);
@@ -428,7 +436,6 @@ function Home() {
       return (
         <div className="home-container">
           <p style={{ fontFamily: '"Patrick Hand", cursive', fontSize: '24px' }}>No data found in the spreadsheet.</p>
-          <button onClick={handleClear} className="clear-button">Start Over</button>
         </div>
       );
     }
@@ -475,8 +482,7 @@ function Home() {
 
     return (
       <div className="home-container data-view">
-        <div className="table-header-bar">
-          <button onClick={handleClear} className="clear-button">Start Over</button>
+        <div className="table-header-bar" style={{ justifyContent: 'flex-end' }}>
           <button className="add-button" title="Add New" onClick={() => setShowCardModal(true)}>
             <svg viewBox="0 0 24 24" width="36" height="36" stroke="#1f1f1f" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -515,9 +521,9 @@ function Home() {
             <p className="personality-desc">
               {aiData?.personalityDescription || 'Loading personality analysis...'}
             </p>
-            <svg 
+            <svg
               className="personality-waves"
-              viewBox="0 0 400 80" 
+              viewBox="0 0 400 80"
               style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '80px' }}
             >
               <path d="M -20 30 Q 30 22, 80 30 T 180 30 T 280 30 T 380 30 T 480 30" fill="none" stroke="#1f1f1f" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
@@ -533,12 +539,12 @@ function Home() {
               "{aiData?.roast ? `${aiData.roast} 😂` : 'Loading roast...'}"
             </p>
             <div className="ranking-bar-container">
-              <div 
+              <div
                 className="ranking-bar-fill"
-                style={{ 
+                style={{
                   width: `${rankingPercent}%`,
                   minWidth: '75px', // Ensure text is never cut off
-                  backgroundColor: `color-mix(in srgb, #D5451B ${targetRanking}%, #ffdaab)` 
+                  backgroundColor: `color-mix(in srgb, #D5451B ${targetRanking}%, #ffdaab)`
                 }}
               >
                 <span className="ranking-text">{rankingPercent}%</span>
@@ -621,70 +627,70 @@ function Home() {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-        {isDragging && (
-          <div className="drag-overlay">
-            <div className="drag-overlay-content">
-              <p>Drop your worklog here!</p>
-            </div>
+      {isDragging && (
+        <div className="drag-overlay">
+          <div className="drag-overlay-content">
+            <p>Drop your worklog here!</p>
           </div>
-        )}
+        </div>
+      )}
 
-        <label className="upload-button-area">
-          <input
-            type="file"
-            style={{ display: 'none' }}
-            accept=".xlsx, .xls, .csv"
-            onChange={handleFileUpload}
-          />
-          <div className="bucket-wrapper">
-            <svg
-              className="bucket"
-              width="120"
-              height="120"
-              viewBox="0 0 24 24"
+      <label className="upload-button-area">
+        <input
+          type="file"
+          style={{ display: 'none' }}
+          accept=".xlsx, .xls, .csv"
+          onChange={handleFileUpload}
+        />
+        <div className="bucket-wrapper">
+          <svg
+            className="bucket"
+            width="120"
+            height="120"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#1f1f1f"
+            strokeWidth="0.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            {/* An empty bucket shape (U shape with an elliptical top rim) */}
+            <path d="M4.5 4.5l1.5 15A2 2 0 0 0 8 21.5h8a2 2 0 0 0 2-2l1.5-15" />
+            <ellipse cx="12" cy="4.5" rx="7.5" ry="2" />
+          </svg>
+
+          <svg
+            className="arrow-container"
+            width="160"
+            height="160"
+            viewBox="0 0 160 160"
+          >
+            <path
+              className="arrow-line"
+              d="M 140 10 Q 100 10 20 90"
               fill="none"
               stroke="#1f1f1f"
-              strokeWidth="0.6"
+              strokeWidth="3"
               strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              {/* An empty bucket shape (U shape with an elliptical top rim) */}
-              <path d="M4.5 4.5l1.5 15A2 2 0 0 0 8 21.5h8a2 2 0 0 0 2-2l1.5-15" />
-              <ellipse cx="12" cy="4.5" rx="7.5" ry="2" />
-            </svg>
+            />
+            <polygon
+              className="arrow-head"
+              points="20,90 35.6,84.4 25.6,74.4"
+              fill="#1f1f1f"
+            />
+          </svg>
+        </div>
 
-            <svg
-              className="arrow-container"
-              width="160"
-              height="160"
-              viewBox="0 0 160 160"
-            >
-              <path
-                className="arrow-line"
-                d="M 140 10 Q 100 10 20 90"
-                fill="none"
-                stroke="#1f1f1f"
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
-              <polygon
-                className="arrow-head"
-                points="20,90 35.6,84.4 25.6,74.4"
-                fill="#1f1f1f"
-              />
-            </svg>
-          </div>
-
-          <div className="upload-text">
-            <p>drag your worklog excel anywhere on this page</p>
-            <p className="file-formats">.xlsx</p>
-          </div>
-        </label>
-      </div>
+        <div className="upload-text">
+          <p>drag your worklog excel anywhere on this page</p>
+          <p className="file-formats">.xlsx</p>
+        </div>
+      </label>
+    </div>
   );
 }
 
-function GalleryDetailModal({ entry, onClose }) {
+function GalleryDetailView({ entry, onBack }) {
   const [rankingPercent, setRankingPercent] = useState(0);
   const targetRanking = entry.aiData?.workEthicRanking || 0;
 
@@ -698,7 +704,7 @@ function GalleryDetailModal({ entry, onClose }) {
   const allDates = new Set(allArr || []);
 
   const gridDays = [];
-  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const monthLabels = [];
   if (endDate != null) {
     let currentMonth = -1;
@@ -719,88 +725,84 @@ function GalleryDetailModal({ entry, onClose }) {
     }
   }
 
-  let streakEmoji = '😴';
-  if (maxStreak > 14) streakEmoji = '🔥';
-  else if (maxStreak >= 7) streakEmoji = '🧑‍💻';
+  let streakEmoji = '\uD83D\uDE34';
+  if (maxStreak > 14) streakEmoji = '\uD83D\uDD25';
+  else if (maxStreak >= 7) streakEmoji = '\uD83E\uDDD1\u200D\uD83D\uDCBB';
 
   return (
-    <div className="card-modal-backdrop" onClick={onClose}>
-      <div className="gallery-detail-modal" onClick={e => e.stopPropagation()}>
-        <div className="gallery-detail-header">
-          <span className="gallery-detail-name">{entry.name}</span>
-          <span className="gallery-detail-meta">NO. {entry.cardNumber} · {entry.issuedDate}</span>
+    <div className="home-container data-view">
+      <div className="table-header-bar">
+        <button onClick={onBack} className="clear-button">← Back</button>
+        <div style={{ textAlign: 'center' }}>
+          <p className="gallery-detail-name" style={{ margin: 0 }}>{entry.name}</p>
+          <p className="gallery-detail-meta" style={{ margin: 0 }}>NO. {entry.cardNumber} · {entry.issuedDate}</p>
+        </div>
+        <div style={{ width: '66px' }} />
+      </div>
+
+      <div className="dashboard-grid">
+        <div className="streak-card empty-card">
+          <span className="streak-text">
+            <span className="wave-container">
+              {'Craziest'.split('').map((char, i) => (
+                <span key={i} className="wave-char" style={{ animationDelay: `${i * 0.1}s` }}>{char}</span>
+              ))}
+            </span>{' '}Post
+          </span>
+          <div className="craziest-post-wrapper">
+            <AutoScaleText color="#D5451B" text={entry.aiData?.craziestPost || '—'} />
+          </div>
         </div>
 
-        <div className="dashboard-grid">
-          {/* Craziest Post */}
-          <div className="streak-card empty-card">
-            <span className="streak-text">
-              <span className="wave-container">
-                {'Craziest'.split('').map((char, i) => (
-                  <span key={i} className="wave-char" style={{ animationDelay: `${i * 0.1}s` }}>{char}</span>
+        <div className="streak-card empty-card" style={{ overflow: 'hidden' }}>
+          <span className="streak-text">
+            <span style={{ color: '#D5451B' }}>{entry.aiData?.personalityType || '???'}</span>: Personality Type
+          </span>
+          <p className="personality-desc">{entry.aiData?.personalityDescription || ''}</p>
+          <svg className="personality-waves" viewBox="0 0 400 80" style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '80px' }}>
+            <path d="M -20 30 Q 30 22, 80 30 T 180 30 T 280 30 T 380 30 T 480 30" fill="none" stroke="#1f1f1f" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M -40 50 Q 10 42, 60 50 T 160 50 T 260 50 T 360 50 T 460 50" fill="none" stroke="#1f1f1f" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M -60 70 Q -10 62, 40 70 T 140 70 T 240 70 T 340 70 T 440 70" fill="none" stroke="#1f1f1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+
+        <div className="streak-card empty-card">
+          <span className="streak-text">Work Ethic Ranking</span>
+          <p className="roast-text">"{entry.aiData?.roast ? `${entry.aiData.roast} \uD83D\uDE02` : '—'}"</p>
+          <div className="ranking-bar-container">
+            <div
+              className="ranking-bar-fill"
+              style={{
+                width: `${rankingPercent}%`,
+                minWidth: '75px',
+                backgroundColor: `color-mix(in srgb, #D5451B ${targetRanking}%, #ffdaab)`
+              }}
+            >
+              <span className="ranking-text">{Math.round(rankingPercent)}%</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="streak-card">
+          <span className="streak-text">
+            <span style={{ color: '#D5451B' }}>{maxStreak || 0} Days</span>: Longest Streak
+            <span style={{ fontFamily: 'sans-serif', marginLeft: '8px' }}>{streakEmoji}</span>
+          </span>
+          {endDate != null && (
+            <div className="graph-container">
+              <div className="contribution-graph">
+                {gridDays.map(d => (
+                  <div key={d.day} className={`day-square day-${d.status}`} />
                 ))}
-              </span>{' '}Post
-            </span>
-            <div className="craziest-post-wrapper">
-              <AutoScaleText color="#D5451B" text={entry.aiData?.craziestPost || '—'} />
-            </div>
-          </div>
-
-          {/* Personality Type */}
-          <div className="streak-card empty-card" style={{ overflow: 'hidden' }}>
-            <span className="streak-text">
-              <span style={{ color: '#D5451B' }}>{entry.aiData?.personalityType || '???'}</span>: Personality Type
-            </span>
-            <p className="personality-desc">{entry.aiData?.personalityDescription || ''}</p>
-            <svg className="personality-waves" viewBox="0 0 400 80" style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '80px' }}>
-              <path d="M -20 30 Q 30 22, 80 30 T 180 30 T 280 30 T 380 30 T 480 30" fill="none" stroke="#1f1f1f" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M -40 50 Q 10 42, 60 50 T 160 50 T 260 50 T 360 50 T 460 50" fill="none" stroke="#1f1f1f" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M -60 70 Q -10 62, 40 70 T 140 70 T 240 70 T 340 70 T 440 70" fill="none" stroke="#1f1f1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-
-          {/* Work Ethic Ranking */}
-          <div className="streak-card empty-card">
-            <span className="streak-text">Work Ethic Ranking</span>
-            <p className="roast-text">"{entry.aiData?.roast ? `${entry.aiData.roast} 😂` : '—'}"</p>
-            <div className="ranking-bar-container">
-              <div
-                className="ranking-bar-fill"
-                style={{
-                  width: `${rankingPercent}%`,
-                  minWidth: '75px',
-                  backgroundColor: `color-mix(in srgb, #D5451B ${targetRanking}%, #ffdaab)`
-                }}
-              >
-                <span className="ranking-text">{Math.round(rankingPercent)}%</span>
+              </div>
+              <div className="month-labels">
+                {monthLabels.map(m => (
+                  <span key={m.colIndex} className="month-label" style={{ left: `${m.colIndex * 18}px` }}>{m.label}</span>
+                ))}
               </div>
             </div>
-          </div>
-
-          {/* Longest Streak */}
-          <div className="streak-card">
-            <span className="streak-text">
-              <span style={{ color: '#D5451B' }}>{maxStreak || 0} Days</span>: Longest Streak
-              <span style={{ fontFamily: 'sans-serif', marginLeft: '8px' }}>{streakEmoji}</span>
-            </span>
-            {endDate != null && (
-              <div className="graph-container">
-                <div className="contribution-graph">
-                  {gridDays.map(d => (
-                    <div key={d.day} className={`day-square day-${d.status}`} />
-                  ))}
-                </div>
-                <div className="month-labels">
-                  {monthLabels.map(m => (
-                    <span key={m.colIndex} className="month-label" style={{ left: `${m.colIndex * 18}px` }}>{m.label}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          )}
         </div>
-
-        <button className="card-submit-btn" onClick={onClose}>Close</button>
       </div>
     </div>
   );
@@ -811,15 +813,34 @@ function Gallery() {
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem('galleryEntries') || '[]');
-    setEntries(stored);
+    const fetchEntries = async () => {
+      const { data, error } = await supabase
+        .from('gallery_entries')
+        .select('*')
+        .order('created_at', { ascending: true });
+      if (error) { console.error('Supabase fetch error:', error); return; }
+      setEntries((data || []).map(row => ({
+        id: row.id,
+        name: row.name,
+        issuedDate: row.issued_date,
+        cardNumber: row.card_number,
+        signatureDataUrl: row.signature_data_url,
+        aiData: row.ai_data,
+        streak: row.streak,
+      })));
+    };
+    fetchEntries();
   }, []);
+
+  if (selected) {
+    return <GalleryDetailView entry={selected} onBack={() => setSelected(null)} />;
+  }
 
   if (entries.length === 0) {
     return (
       <div className="gallery-container" style={{ justifyContent: 'center' }}>
         <p style={{ fontFamily: '"Patrick Hand", cursive', fontSize: '22px', color: '#888' }}>
-          No cards yet — submit one from the dashboard!
+          Submit a card to get started!
         </p>
       </div>
     );
@@ -842,10 +863,6 @@ function Gallery() {
           </div>
         ))}
       </div>
-
-      {selected && (
-        <GalleryDetailModal entry={selected} onClose={() => setSelected(null)} />
-      )}
     </div>
   );
 }
