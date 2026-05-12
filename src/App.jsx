@@ -127,6 +127,10 @@ function Home() {
   const [cardName, setCardName] = useState('');
 
   useEffect(() => {
+    document.title = 'Worklog Wrapped';
+  }, []);
+
+  useEffect(() => {
     if (aiData) {
       const t = setTimeout(() => {
         setRankingPercent(targetRanking);
@@ -811,6 +815,10 @@ function GalleryDetailView({ entry, onBack }) {
 function Gallery() {
   const [entries, setEntries] = useState([]);
   const [selected, setSelected] = useState(null);
+
+  useEffect(() => {
+    document.title = 'Gallery';
+  }, []);
 
   useEffect(() => {
     const fetchEntries = async () => {
