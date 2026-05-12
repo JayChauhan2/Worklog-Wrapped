@@ -119,11 +119,12 @@ function Home() {
   const [enableLoadingScreen, setEnableLoadingScreen] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [brutality, setBrutality] = useState(15);
-  const targetRanking = 67; // Fake target percent
+  const [aiData, setAiData] = useState(null);
+  const targetRanking = aiData?.workEthicRanking || 0;
   const [rankingPercent, setRankingPercent] = useState(0);
 
   useEffect(() => {
-    if (excelData) {
+    if (aiData) {
       const t = setTimeout(() => {
         setRankingPercent(targetRanking);
       }, 100);
@@ -131,68 +132,136 @@ function Home() {
     } else {
       setRankingPercent(0);
     }
-  }, [excelData]);
+  }, [aiData, targetRanking]);
+
+  const aiDataRef = useRef(null);
+  useEffect(() => { aiDataRef.current = aiData; }, [aiData]);
 
   useEffect(() => {
-    if (isLoading) {
+    if (isLoading && enableLoadingScreen) {
       setLoadingProgress(0);
       let progress = 0;
       let timeoutId;
+      const startTime = Date.now();
+      const TOTAL_TIME = 10000; // Exactly 10 seconds
 
       const updateProgress = () => {
-        // Randomly increment by a small or large amount to simulate jagged loading
-        let increment = Math.random() < 0.8 ? Math.random() * 4 : Math.random() * 15;
-        progress += increment;
+        const elapsed = Date.now() - startTime;
+        const currentAiData = aiDataRef.current;
 
-        // Cap at 99 until the final 10-second timeout resolves
-        if (progress > 99) {
-          progress = 99;
+        // If 10 seconds have passed AND we have AI data (or at 12s regardless), finish
+        if (elapsed >= TOTAL_TIME && currentAiData) {
+          setLoadingProgress(100);
+          setTimeout(() => setIsLoading(false), 500);
+          return;
+        }
+        // Hard cap: stop at 12s even without AI data
+        if (elapsed >= 12000) {
+          setLoadingProgress(100);
+          setTimeout(() => setIsLoading(false), 500);
+          return;
         }
 
-        setLoadingProgress(Math.floor(progress));
+        // Randomize the delay to the next update
+        const isLongHang = Math.random() < 0.2; // 20% chance to freeze
+        const nextDelay = isLongHang ? (Math.random() * 1000 + 800) : (Math.random() * 300 + 100);
 
-        // If we hit 99, we just wait. If not, schedule next jump between 100ms and 600ms
-        if (progress < 99) {
-          timeoutId = setTimeout(updateProgress, Math.random() * 500 + 100);
+        // Figure out where the progress roughly "should" be based on time
+        const timeRatio = Math.min((elapsed + nextDelay) / TOTAL_TIME, 1);
+        
+        // Non-linear curve: starts a bit faster, slows down
+        let idealProgress = Math.pow(timeRatio, 0.8) * 100;
+        
+        // Random jitter so it's not a smooth line
+        let nextTarget = idealProgress + (Math.random() * 15 - 5);
+
+        // Ensure it always goes forward a tiny bit
+        if (nextTarget <= progress) {
+          nextTarget = progress + (Math.random() * 2 + 0.1);
         }
+        // Don't hit 100 until the time is actually up AND ai is ready
+        if (nextTarget > 99 && (elapsed < TOTAL_TIME - 500 || !currentAiData)) {
+          nextTarget = 99;
+        }
+
+        progress = nextTarget;
+        setLoadingProgress(progress);
+
+        timeoutId = setTimeout(updateProgress, nextDelay);
       };
 
-      // Start the jagged progress
       timeoutId = setTimeout(updateProgress, 200);
 
-      // Force finish after exactly 10 seconds
-      const finishTimeout = setTimeout(() => {
-        clearTimeout(timeoutId);
-        setLoadingProgress(100);
-        setIsLoading(false);
-      }, 10000);
-
-      return () => {
-        clearTimeout(timeoutId);
-        clearTimeout(finishTimeout);
-      };
+      return () => clearTimeout(timeoutId);
     }
-  }, [isLoading]);
+  }, [isLoading, enableLoadingScreen]);
+
+  // When loading screen is OFF: dismiss as soon as AI data arrives
+  useEffect(() => {
+    if (isLoading && !enableLoadingScreen && aiData) {
+      setIsLoading(false);
+    }
+  }, [isLoading, enableLoadingScreen, aiData]);
 
   const processFile = (file) => {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const data = new Uint8Array(event.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-
-      // We grab the very first tab regardless of its exact name
+    reader.onload = async (event) => {
+      const dataArr = new Uint8Array(event.target.result);
+      const workbook = XLSX.read(dataArr, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-
-      // Convert that sheet to a JSON array of objects
       const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+      
       setExcelData(json);
+      setAiData(null);
+      setIsLoading(true);
 
-      // Trigger the fake loading phase if enabled
-      if (enableLoadingScreen) {
-        setIsLoading(true);
+      try {
+        // Use the first 6 columns only
+        const allColumns = json.length > 0 ? Object.keys(json[0]) : [];
+        const columns = allColumns.slice(0, 6);
+        console.log('📋 Sending columns:', columns);
+
+        // Format each populated row as a structured string entry
+        const descriptions = json
+          .map(row => {
+            const parts = columns
+              .map(col => {
+                const val = row[col];
+                return val !== undefined && val !== '' ? `${col}: ${val}` : null;
+              })
+              .filter(Boolean);
+            return parts.length > 0 ? parts.join(' | ') : null;
+          })
+          .filter(Boolean);
+
+        console.log(`📝 Sending ${descriptions.length} rows to API`);
+
+        if (descriptions.length === 0) {
+          throw new Error(`No populated rows found. Columns detected: ${allColumns.join(', ')}`);
+        }
+
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ descriptions })
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || "Server returned an error");
+        }
+        setAiData(result);
+      } catch (error) {
+        console.error("API Error", error);
+        setAiData({
+          craziestPost: "Failed to connect to AI. Imagine something crazy here.",
+          personalityType: "Error-Type",
+          personalityDescription: "The AI broke, but you're probably very nice.",
+          workEthicRanking: 1,
+          roast: "Could not roast you."
+        });
       }
     };
     reader.readAsArrayBuffer(file);
@@ -238,6 +307,14 @@ function Home() {
   };
 
   if (isLoading) {
+    if (!enableLoadingScreen) {
+      return (
+        <div className="home-container loading-view" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p style={{ fontFamily: '"Patrick Hand", cursive', fontSize: '32px' }}>NO LOADING SCREEN</p>
+        </div>
+      );
+    }
+
     const radius = 10;
     const circumference = 2 * Math.PI * radius;
     const offset = circumference * (1 - loadingProgress / 100);
@@ -266,7 +343,7 @@ function Home() {
               transform="rotate(-90 12 12)"
             />
           </svg>
-          <span className="progress-text">{loadingProgress}%</span>
+          <span className="progress-text">{Math.round(loadingProgress)}%</span>
         </div>
         <div className="loading-text-container">
           <p>loading your personality...</p>
@@ -368,17 +445,17 @@ function Home() {
               Post
             </span>
             <div className="craziest-post-wrapper">
-              <AutoScaleText color="#D5451B" text='"I accidentally pushed my AWS keys to a public repo. Literally the worst day of my life."' />
+              <AutoScaleText color="#D5451B" text={aiData?.craziestPost || "Loading your craziest post..."} />
             </div>
           </div>
 
           {/* Quadrant 1: Top Right */}
           <div className="streak-card empty-card" style={{ overflow: 'hidden' }}>
             <span className="streak-text">
-              <span style={{ color: '#D5451B' }}>South-West</span>: Personality Type
+              <span style={{ color: '#D5451B' }}>{aiData?.personalityType || '???'}</span>: Personality Type
             </span>
             <p className="personality-desc">
-              You thrive on chaotic bursts of late-night energy and completely ignore any structured calendar you make.
+              {aiData?.personalityDescription || 'Loading personality analysis...'}
             </p>
             <svg 
               className="personality-waves"
@@ -395,7 +472,7 @@ function Home() {
           <div className="streak-card empty-card">
             <span className="streak-text">Work Ethic Ranking</span>
             <p className="roast-text">
-              "Literally typed with your elbows."
+              "{aiData?.roast || 'Loading roast...'}"
             </p>
             <div className="ranking-bar-container">
               <div 
