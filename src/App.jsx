@@ -122,6 +122,7 @@ function Home() {
   const [aiData, setAiData] = useState(null);
   const targetRanking = aiData?.workEthicRanking || 0;
   const [rankingPercent, setRankingPercent] = useState(0);
+  const [showCardModal, setShowCardModal] = useState(false);
 
   useEffect(() => {
     if (aiData) {
@@ -136,6 +137,42 @@ function Home() {
 
   const aiDataRef = useRef(null);
   useEffect(() => { aiDataRef.current = aiData; }, [aiData]);
+
+  const canvasRef = useRef(null);
+  const isDrawingOnCard = useRef(false);
+  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  const getCanvasPos = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  };
+
+  const handleCardMouseDown = (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    isDrawingOnCard.current = true;
+    const pos = getCanvasPos(e);
+    const ctx = canvasRef.current?.getContext('2d');
+    if (ctx) { ctx.beginPath(); ctx.moveTo(pos.x, pos.y); }
+  };
+
+  const handleCardMouseMove = (e) => {
+    if (!isDrawingOnCard.current || !canvasRef.current) return;
+    const pos = getCanvasPos(e);
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.lineTo(pos.x, pos.y);
+    ctx.strokeStyle = '#1f1f1f';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  };
+
+  const handleCardMouseUp = () => { isDrawingOnCard.current = false; };
 
   useEffect(() => {
     if (isLoading && enableLoadingScreen) {
@@ -179,12 +216,8 @@ function Home() {
         if (nextTarget <= progress) {
           nextTarget = progress + (Math.random() * 2 + 0.1);
         }
-        // Don't hit 100 until the time is actually up AND ai is ready
-        if (nextTarget > 99 && (elapsed < TOTAL_TIME - 500 || !currentAiData)) {
-          nextTarget = 99;
-        }
-
-        progress = nextTarget;
+        // Never reach 100 on its own — only the completion check above can set 100
+        progress = Math.min(nextTarget, 99);
         setLoadingProgress(progress);
 
         timeoutId = setTimeout(updateProgress, nextDelay);
@@ -419,7 +452,7 @@ function Home() {
       <div className="home-container data-view">
         <div className="table-header-bar">
           <button onClick={handleClear} className="clear-button">Start Over</button>
-          <button className="add-button" title="Add New">
+          <button className="add-button" title="Add New" onClick={() => setShowCardModal(true)}>
             <svg viewBox="0 0 24 24" width="36" height="36" stroke="#1f1f1f" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -472,7 +505,7 @@ function Home() {
           <div className="streak-card empty-card">
             <span className="streak-text">Work Ethic Ranking</span>
             <p className="roast-text">
-              "{aiData?.roast || 'Loading roast...'}"
+              "{aiData?.roast ? `${aiData.roast} 😂` : 'Loading roast...'}"
             </p>
             <div className="ranking-bar-container">
               <div 
@@ -518,6 +551,38 @@ function Home() {
 
           </div>
         </div>
+
+        {/* Capstone Card Modal */}
+        {showCardModal && (
+          <div className="card-modal-backdrop" onClick={() => setShowCardModal(false)}>
+            <div className="card-modal-container" onClick={e => e.stopPropagation()}>
+              <div
+                className="capstone-card"
+                onMouseDown={handleCardMouseDown}
+                onMouseMove={handleCardMouseMove}
+                onMouseUp={handleCardMouseUp}
+                onMouseLeave={handleCardMouseUp}
+              >
+                <canvas ref={canvasRef} className="card-drawing-canvas" width={880} height={560} />
+                <div className="card-content">
+                  <p className="card-title-text">Capstone</p>
+                  <p className="card-field-label">MY NAME IS</p>
+                  <input type="text" className="card-name-input" placeholder="your name" />
+                  <p className="card-field-label">ISSUED ON</p>
+                  <p className="card-date-value">{today}</p>
+                  <div className="card-footer-row">
+                    <span className="card-number-label">NO. #</span>
+                    <div className="card-sig-zone">
+                      <div className="card-sig-line" />
+                      <p className="card-field-label" style={{ marginTop: '4px' }}>Signature</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button className="card-submit-btn">Submit</button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
